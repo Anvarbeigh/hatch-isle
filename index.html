@@ -102,6 +102,7 @@
   .tag:active { transform: translateY(3px); box-shadow: inset 0 -2px 0 var(--wood2), 0 1px 0 var(--ink); }
   .tag .ic { font-size: 44px; height: 46px; display: grid; place-items: center; }
   .tag .nm { font-size: 18px; line-height: 1.05; }
+  .tag .eff { font-size: 12px; line-height: 1.1; color: #d8ffb0; white-space: nowrap; }
   .tag .cost { font-size: 16px; display: flex; align-items: center; gap: 3px; background: rgba(42,29,23,.35); border-radius: 6px; padding: 0 6px; margin-top: 2px; }
   .tag .lv { position: absolute; top: -10px; right: -6px; background: var(--paper); color: var(--ink); border: 2px solid var(--ink); border-radius: 8px; font-size: 12px; padding: 0 5px; transform: rotate(6deg); }
   .tag.cant .cost { color: #ffb0a0; }
@@ -170,7 +171,7 @@
 
   /* small screens */
   @media (max-width: 520px) {
-    .tag { width: 68px; padding: 6px 2px; } .tag .ic { font-size: 32px; height: 34px; } .tag .nm { font-size: 14px; } .tag .cost { font-size: 14px; padding: 0 3px; }
+    .tag { width: 68px; padding: 6px 2px; } .tag .ic { font-size: 32px; height: 34px; } .tag .nm { font-size: 14px; } .tag .eff { font-size: 11px; } .tag .cost { font-size: 14px; padding: 0 3px; }
     #dock { gap: 5px; } #coins .big { font-size: 24px; } #coins .ic { width: 38px; height: 38px; } .rbtn { width: 52px; height: 52px; font-size: 28px; }
     #reveal .rib { font-size: 24px; padding: 5px 18px 8px; }
   }
@@ -194,9 +195,9 @@
   <div id="hint"><svg viewBox="0 0 64 64"><use href="#i-hand"/></svg><div class="ot" id="hintT">Tap the egg!</div></div>
   <div id="dock">
     <button class="tag wood green" id="tEggs"><div class="ic"><svg class="i"><use href="#i-egg"/></svg></div><div class="nm ot" data-t="eggs">Eggs</div></button>
-    <button class="tag wood" id="tTap"><span class="lv">1</span><div class="ic"><svg class="i"><use href="#i-hand"/></svg></div><div class="nm ot" data-t="tap">Tap</div><div class="cost ot"><svg class="i"><use href="#i-coin"/></svg><span>15</span></div></button>
-    <button class="tag wood" id="tLamp"><span class="lv">0</span><div class="ic"><svg class="i"><use href="#i-lamp"/></svg></div><div class="nm ot" data-t="lamp">Lamp</div><div class="cost ot"><svg class="i"><use href="#i-coin"/></svg><span>50</span></div></button>
-    <button class="tag wood" id="tTreats"><span class="lv">0</span><div class="ic"><svg class="i"><use href="#i-apple"/></svg></div><div class="nm ot" data-t="treats">Treats</div><div class="cost ot"><svg class="i"><use href="#i-coin"/></svg><span>100</span></div></button>
+    <button class="tag wood" id="tTap"><span class="lv">1</span><div class="ic"><svg class="i"><use href="#i-hand"/></svg></div><div class="nm ot" data-t="tap">Tap</div><div class="eff ot"></div><div class="cost ot"><svg class="i"><use href="#i-coin"/></svg><span>15</span></div></button>
+    <button class="tag wood" id="tLamp"><span class="lv">0</span><div class="ic"><svg class="i"><use href="#i-lamp"/></svg></div><div class="nm ot" data-t="lamp">Lamp</div><div class="eff ot"></div><div class="cost ot"><svg class="i"><use href="#i-coin"/></svg><span>50</span></div></button>
+    <button class="tag wood" id="tTreats"><span class="lv">0</span><div class="ic"><svg class="i"><use href="#i-apple"/></svg></div><div class="nm ot" data-t="treats">Treats</div><div class="eff ot"></div><div class="cost ot"><svg class="i"><use href="#i-coin"/></svg><span>100</span></div></button>
     <button class="tag wood green" id="tBook"><div class="ic"><svg class="i"><use href="#i-paw"/></svg></div><div class="nm ot" data-t="book">Pets</div></button>
   </div>
 </div>

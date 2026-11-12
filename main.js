@@ -506,14 +506,20 @@ function buy(kind) {
   audio.play('buy', { vol: 0.6 });
   if (kind === 'lamp' && S.lamp === 1) { world.lamp.visible = true; fx.puff(world.lamp.position, 10); }
   if (kind === 'treats' && S.treats === 1) { world.bowl.visible = true; fx.puff(world.bowl.position, 10); }
-  { const r = tags[kind].getBoundingClientRect(); floatText(r.left + r.width / 2, r.top - 6, kind === 'tap' ? t('upTap', { n: tapPower(S.tap) }) : kind === 'lamp' ? t('upLamp', { n: autoRate(S.lamp).toFixed(1) }) : t('upTreats', { n: Math.round(treatsMult(S.treats) * 100) }), '#c8ff8a'); }
+  { const e = effect(kind, S[kind] - 1); toast(t(kind === 'tap' ? 'upTap' : kind === 'lamp' ? 'upLamp' : 'upTreats', e)); const r = tags[kind].getBoundingClientRect(); floatText(r.left + r.width / 2, r.top - 6, t(kind === 'tap' ? 'effTap' : kind === 'lamp' ? 'effLamp' : 'effTreats', e), '#c8ff8a'); }
   S.bought = 1;
   if (kind === 'tap') { fx.sparkle(tmpV.set(NEST.x, 1, NEST.z), 0xffd27a, 16, 1.8); fx.ring(new THREE.Vector3(NEST.x, 0, NEST.z), 0xffd27a); egg.sv += 16; }
   if (kind === 'lamp') fx.sparkle(world.lamp.position.clone().setY(1.8), 0xffe08a, 10, 1);
-  if (kind === 'treats') { fx.sparkle(world.bowl.position.clone().setY(0.4), 0x9ad65a, 10, 1); pets.forEach((p) => { if (p.state === 'idle' || p.state === 'walk') jumpTo(p, p.pos.clone(), 0.45, 0.8); }); }
+  if (kind === 'treats') { fx.sparkle(world.bowl.position.clone().setY(0.5), 0x9ad65a, 22, 1.4); fx.ring(world.bowl.position.clone(), 0x9ad65a); const s = toScreen(world.bowl.position.clone().setY(1)); floatText(s.x, s.y, t('treatsInfo'), '#d8ffb0'); pets.forEach((p, k) => { if (p.state === 'idle' || p.state === 'walk') setTimeout(() => { jumpTo(p, p.pos.clone(), 0.45, 0.9); fx.sparkle(p.pos.clone().setY(1.1), 0xff8ab0, 4, 0.6); }, k * 60); }); }
   updateHud(true); save();
 }
 
+// what an upgrade does, from level l to l+1 (shown on the button and in the toast)
+function effect(kind, l) {
+  if (kind === 'tap') return { a: tapPower(l), b: tapPower(l + 1) };
+  if (kind === 'lamp') return { a: autoRate(l).toFixed(1).replace('.0', ''), b: autoRate(l + 1).toFixed(1).replace('.0', '') };
+  return { a: Math.round((treatsMult(l) - 1) * 100), b: Math.round((treatsMult(l + 1) - 1) * 100) };
+}
 // ---------------- HUD ----------------
 const tags = { tap: $('tTap'), lamp: $('tLamp'), treats: $('tTreats') };
 let lastHud = 0;
@@ -527,6 +533,8 @@ function updateHud(force) {
   for (const k of Object.keys(tags)) {
     const el = tags[k], lv = S[k], max = lv >= MAXLV[k], c = COST[k](lv);
     el.querySelector('.lv').textContent = lv;
+    el.querySelector('.eff').textContent = max ? '' : t(k === 'tap' ? 'effTap' : k === 'lamp' ? 'effLamp' : 'effTreats', effect(k, lv));
+    el.title = t(k + 'Info');
     el.querySelector('.cost span').textContent = max ? t('max') : fmt(c);
     el.classList.toggle('can', !max && S.coins >= c && S.hatched > 0);
     el.classList.toggle('cant', !max && S.coins < c);
@@ -742,7 +750,23 @@ async function load() {
   if (!Array.isArray(S.eh)) S.eh = [0, 0, 0, 0, 0];
   if (!Array.isArray(S.setDone)) S.setDone = [0, 0, 0, 0, 0];
 }
-document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+// silence + pause whenever the player is not here: tab hidden, window blurred, page closing, or a portal pause
+let away = false;
+function setAway(on) {
+  if (on === away) return;
+  away = on;
+  if (on) { save(); audio.suspend(); paused++; } else { audio.resume(); paused = Math.max(0, paused - 1); clock.getDelta(); }
+}
+let blurred = false;   // from blur/focus events only (an iframe can be unfocused at load, that must not pause the game)
+const checkAway = () => setAway(document.hidden || blurred);
+document.addEventListener('visibilitychange', checkAway);
+addEventListener('blur', () => { blurred = true; checkAway(); });
+addEventListener('focus', () => { blurred = false; checkAway(); });
+addEventListener('pointerdown', () => { if (blurred) { blurred = false; checkAway(); } }, true);
+addEventListener('pageshow', checkAway);
+addEventListener('pagehide', () => setAway(true));
+platform.onPause = () => setAway(true);
+platform.onResume = () => checkAway();
 addEventListener('pagehide', save);
 
 // ---------------- main loop ----------------
