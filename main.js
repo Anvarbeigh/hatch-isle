@@ -429,7 +429,7 @@ function nextEgg() {
     if (S.coins >= cost) { S.coins -= cost; audio.play('buy', { vol: 0.5 }); const r = coinsEl.getBoundingClientRect(); floatText(r.left + r.width / 2, r.bottom + 4, `−${fmt(cost)} · ${t('egg')[type]}`, '#ffe9a8'); }
     else { type = 0; if (!nextEgg.told || Date.now() - nextEgg.told > 180000) { nextEgg.told = Date.now(); toast(t('nextEggFree')); } }   // once, then quiet for 3 min
   }
-  S.egg = { type, heat: 0, seed: 1 + Math.floor(Math.random() * 9999) };
+  S.egg = { type, heat: 0, seed: 1 + Math.floor(Math.random() * 9999), paid: type === S.sel ? cost : 0 };
   refreshEgg();
   world.egg.visible = true; egg.state = 'drop'; egg.t = 0;
   save();
@@ -589,11 +589,13 @@ function eggSvg(i, lock) {
 }
 function openEggs() {
   const rows = EGGS.map((e, i) => {
-    const lock = !eggUnlocked(i), on = S.sel === i, next = !lock && !on && i > S.sel && S.coins >= eggCost(i);
+    // "on" = the egg really sitting on the nest (not just the selection), so the shop never shows a choice that didn't happen
+    const lock = !eggUnlocked(i), on = S.egg.type === i, cant = !lock && !on && S.coins < eggCost(i), next = !lock && !on && !cant && i > S.egg.type;
     const petsH = ANIMALS.filter((a) => a.egg === i).map((a) => `<div class="pc ${S.pets[a.id] ? '' : 'miss'}" style="border-color:${RARITY[a.r].color}"><img src="${portrait(a.id)}" alt=""><b style="background:${RARITY[a.r].color}">${RARITY[a.r].weight}%</b></div>`).join('');
     const ni = newIn(i), found = speciesFound(i);
     const btn = lock ? `<button class="pbtn" disabled><svg class="i"><use href="#i-lock"/></svg></button>`
       : on ? `<button class="pbtn flat" disabled>${t('selected')}</button>`
+      : cant ? `<button class="pbtn cant" data-egg="${i}">${t('needMore', { n: fmt(eggCost(i) - S.coins) })}</button>`
       : `<button class="pbtn ${eggCost(i) ? 'gold' : ''}" data-egg="${i}">${t('select')}</button>`;
     const sub = lock ? t('locked', { n: 2, egg: t('eggShort')[i - 1] }) : (eggCost(i) ? `<svg class="i"><use href="#i-coin"/></svg> ${fmt(eggCost(i))}` : t('free'));
     return `<div class="eggrow ${on ? 'on' : ''} ${lock ? 'lock' : ''} ${next ? 'next' : ''}">${eggSvg(i, lock)}<div class="mid"><div class="nm">${t('egg')[i]}</div><div style="font-weight:800;font-size:14px">${sub}</div><div class="pets">${petsH}</div><div class="odds">${found}/4 · ${ni ? t('newIn', { n: ni }) : t('setDone')}</div></div>${btn}</div>`;
@@ -601,12 +603,14 @@ function openEggs() {
   const odds = RARITY.map((r, i) => `<span style="color:${r.color}">${t('rarity')[i]} ${r.weight}%</span>`).join(' · ');
   openPanel(`<div class="ribbon wood ot">${t('eggsTitle')}</div><button class="x">✕</button><p class="sub">${t('eggsSub')}</p><p class="sub" style="font-size:14px">${t('chance')}: ${odds}<br><b>${t('pityInfo', { n: PITY })}</b></p><div class="scroll">${rows}</div>`);
   veil.querySelectorAll('[data-egg]').forEach((b) => b.addEventListener('click', () => {
-    S.sel = +b.dataset.egg; audio.play('click');
-    // swap the current egg right away if it hasn't been warmed yet
-    if (S.egg.heat === 0 && egg.state === 'idle' && S.egg.type !== S.sel && S.coins >= eggCost(S.sel)) {
-      S.coins -= eggCost(S.sel); S.egg = { type: S.sel, heat: 0, seed: 1 + Math.floor(Math.random() * 9999) }; refreshEgg(); egg.state = 'drop'; egg.t = 0;
-    } else if (S.coins < eggCost(S.sel)) toast(t('notEnough'));
-    save(); openEggs();
+    const i = +b.dataset.egg, c = eggCost(i);
+    if (S.coins < c) { audio.play('error', { vol: 0.55 }); toast(t('needMore', { n: fmt(c - S.coins) })); return; }   // never switch silently
+    if (egg.state !== 'idle' || revealPet) { toast(t('waitHatch')); return; }
+    // put the chosen egg on the nest right now; the current egg goes back and its price is refunded
+    audio.play('buy', { vol: 0.5 });
+    S.coins += S.egg.paid || 0; S.coins -= c; S.sel = i;
+    S.egg = { type: i, heat: 0, seed: 1 + Math.floor(Math.random() * 9999), paid: c }; refreshEgg(); egg.state = 'drop'; egg.t = 0;
+    save(); closePanel(); toast(t('eggOnNest', { egg: t('egg')[i] })); updateHud(true);
   }));
 }
 function openBook() {
