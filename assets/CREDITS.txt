@@ -1,0 +1,4 @@
+Hatch Isle — credits
+3D models, island, animals, UI and icons: made in code for this game (no third-party art).
+Sounds: Kenney (www.kenney.nl), CC0 1.0. Music: procedural, made in code.
+Font: Nunito (SIL Open Font License 1.1, fonts/OFL.txt). Engine: three.js r160, MIT License.
