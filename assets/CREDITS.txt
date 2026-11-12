@@ -1,4 +1,5 @@
 Hatch Isle — credits
 3D models, island, animals, UI and icons: made in code for this game (no third-party art).
-Sounds: Kenney (www.kenney.nl), CC0 1.0. Music: procedural, made in code.
+UI sounds (coin, crack, buy, open, close, error, place, jump, unlock, whoosh, land, click): Kenney "Interface Sounds" (www.kenney.nl), CC0 1.0, normalised and trimmed.
+Tap, hatch and new-pet jingles and the music loop: marimba-style synthesis made for this game (tools/make_sfx.py).
 Font: Nunito (SIL Open Font License 1.1, fonts/OFL.txt). Engine: three.js r160, MIT License.

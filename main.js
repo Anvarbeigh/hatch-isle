@@ -290,7 +290,7 @@ function flyCoin(pos, v) {
     { transform: `translate(${s.x - 13}px, ${s.y - 13}px) scale(.6)` },
     { transform: `translate(${mx - 13}px, ${my - 13}px) scale(1.15)`, offset: 0.45 },
     { transform: `translate(${tx - 13}px, ${ty - 13}px) scale(.8)` }], { duration: 650 + Math.random() * 150, easing: 'cubic-bezier(.5,0,.7,1)' });
-  an.onfinish = () => { el.remove(); flying--; bumpCoins(); audio.play('coin', { vol: 0.18, rate: 1 + Math.random() * 0.3 }); };
+  an.onfinish = () => { el.remove(); flying--; bumpCoins(); audio.play('coin', { vol: 0.35, rate: [1, 1.122, 1.26][Math.floor(Math.random() * 3)] }); };
 }
 let bumpT = 0;
 function bumpCoins() { const now = performance.now(); if (now - bumpT < 90) return; bumpT = now; coinsEl.classList.remove('bump'); void coinsEl.offsetWidth; coinsEl.classList.add('bump'); }
@@ -318,7 +318,7 @@ function warmEgg(amount, coins, auto = false) {
     egg.sv += 11; egg.tv.x += (Math.random() - 0.5) * 3; egg.tv.y += (Math.random() - 0.5) * 3;
     const top = toScreen(tmpV.set(NEST.x, 2.3, NEST.z));
     floatText(top.x + (Math.random() - 0.5) * 70, top.y, `+${fmt(coins)}`);
-    audio.play('click', { vol: 0.5, rate: 0.9 + (S.egg.heat / eggHeat()) * 0.6 });
+    { const sc = [1, 1.122, 1.26, 1.335, 1.498]; audio.play('tap', { vol: 0.5, rate: sc[Math.floor(Math.random() * 5)] * (0.94 + (S.egg.heat / eggHeat()) * 0.12) }); }   // pentatonic steps so repeats never grate
     fx.sparkle(tmpV.set(NEST.x, 1.0, NEST.z), 0xffd27a, 6, 1.8); fx.tapRing();
   } else { egg.sv += 1.5; }
   const after = crackStage();
@@ -369,7 +369,7 @@ function burst() {
   fx.puff(pos, 10); fx.ring(pos);
   fx.sparkle(pos, RARITY[def.r].color, 10 + def.r * 8, 2);
   if (def.r >= 2) fx.pillar(new THREE.Vector3(NEST.x, 0, NEST.z), RARITY[def.r].color);
-  audio.play(def.r >= 2 ? 'hatch_rare' : 'hatch', { vol: 0.8 });
+  audio.play(!had ? 'hatch_rare' : 'hatch', { vol: 0.8 });           // new pet: the longer jingle
   if (def.r >= 3) platform.happytime();
   shake = 0.35;
   { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
