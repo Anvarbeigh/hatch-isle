@@ -73,12 +73,12 @@
   #dex { position: absolute; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%) rotate(1deg); display: flex; align-items: center; gap: 8px; padding: 5px 14px 7px 10px; font-size: 30px; }
   #dex .dg { font-size: 17px; font-weight: 900; line-height: 1.05; white-space: nowrap; }
   #dex .drow { display: flex; align-items: center; gap: 6px; } #dex .dn { font-size: 14px; font-weight: 900; }
-  #dex .dr { font-size: 13px; font-weight: 900; color: #ffe9a8; white-space: nowrap; }
+  #dex .dr { font-size: 14px; font-weight: 900; color: #ffe9a8; white-space: nowrap; }
   #dex .db { width: 84px; height: 10px; margin-top: 4px; background: #4a2a14; border: 2px solid var(--ink); border-radius: 6px; overflow: hidden; }
   #dex .db i { display: block; height: 100%; width: 0; background: var(--leaf); transition: width .4s; }
   #dex.pop { animation: dexpop .6s cubic-bezier(.3,1.8,.6,1); }
   @keyframes dexpop { 40% { transform: translateX(-50%) scale(1.3) rotate(-3deg); } }
-  @media (max-width: 520px) { #dex { top: calc(max(10px, env(safe-area-inset-top)) + 62px); font-size: 24px; } #dex .db { width: 60px; } #dex .dg { font-size: 14px; } }
+  @media (max-width: 520px) { #dex { top: calc(max(10px, env(safe-area-inset-top)) + 62px); font-size: 24px; } #dex .db { width: 60px; } #dex .dg { font-size: 15px; } }
   #banner { position: fixed; left: 50%; top: 30%; transform: translateX(-50%); z-index: 16; text-align: center; pointer-events: none; }
   #banner.go { animation: bnr 2.6s cubic-bezier(.3,1.6,.6,1) forwards; }
   @keyframes bnr { 0% { transform: translateX(-50%) scale(.3); opacity: 0; } 12% { transform: translateX(-50%) scale(1.08); opacity: 1; } 18% { transform: translateX(-50%) scale(1); } 85% { opacity: 1; } 100% { transform: translateX(-50%) translateY(-30px); opacity: 0; } }
@@ -129,11 +129,11 @@
   .eggrow .pc { position: relative; width: 44px; height: 44px; border-radius: 8px; border: 2.5px solid var(--ink); background: #fff7e6; }
   .eggrow .pc img { width: 100%; height: 100%; display: block; border-radius: 6px; }
   .eggrow .pc.miss img { filter: brightness(0) opacity(.3); }
-  .eggrow .pc b { position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%); font-size: 10px; line-height: 1; padding: 2px 3px; border-radius: 4px; color: #fff; border: 1.5px solid var(--ink); white-space: nowrap; }
+  .eggrow .pc b { position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%); font-size: 12px; line-height: 1; padding: 2px 3px; border-radius: 4px; color: #fff; border: 1.5px solid var(--ink); white-space: nowrap; }
   .eggrow .pets { gap: 6px; margin-bottom: 6px; }
   .eggrow .pets img.old, .eggrow .pets .q { width: 40px; height: 40px; border-radius: 8px; border: 2px solid var(--ink); background: #fff7e6; }
   .eggrow .pets .q { display: grid; place-items: center; font-weight: 900; color: rgba(42,29,23,.4); font-size: 18px; }
-  .eggrow .odds { font-size: 13px; font-weight: 800; opacity: .85; margin-top: 4px; }
+  .eggrow .odds { font-size: 14px; font-weight: 800; opacity: .9; margin-top: 4px; }
   .pbtn { border: 3px solid var(--ink); border-radius: 10px; padding: 9px 14px; font-weight: 900; font-size: 18px; color: var(--cream); cursor: pointer; min-width: 92px;
           background: linear-gradient(#7fd05a, #5bb43c); box-shadow: inset 0 -4px 0 var(--leaf-d), 0 4px 0 var(--ink); display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
   .pbtn:active { transform: translateY(3px); box-shadow: inset 0 -2px 0 var(--leaf-d), 0 1px 0 var(--ink); }
@@ -143,8 +143,8 @@
   .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .card { border: 3px solid var(--ink); border-radius: 10px; background: #fff7e6; text-align: center; padding: 4px 2px 5px; position: relative; }
   .card img { width: 100%; aspect-ratio: 1; display: block; }
-  .card .nm { font-size: 12px; font-weight: 900; line-height: 1.1; min-height: 2.2em; display: flex; align-items: center; justify-content: center; }
-  .card .st { position: absolute; top: 2px; right: 4px; font-size: 13px; font-weight: 900; color: var(--gold-d); }
+  .card .nm { font-size: 14px; font-weight: 900; line-height: 1.1; min-height: 2.2em; display: flex; align-items: center; justify-content: center; }
+  .card .st { position: absolute; top: 2px; right: 4px; font-size: 15px; font-weight: 900; color: var(--gold-d); }
   .card.unk img { filter: brightness(0) opacity(.25); }
   .rowh { grid-column: 1 / -1; font-weight: 900; font-size: 15px; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
 
@@ -169,11 +169,11 @@
 
   /* small screens */
   @media (max-width: 520px) {
-    .tag { width: 68px; padding: 6px 2px; } .tag .ic { font-size: 32px; height: 34px; } .tag .nm { font-size: 13px; } .tag .cost { font-size: 13px; padding: 0 3px; }
+    .tag { width: 68px; padding: 6px 2px; } .tag .ic { font-size: 32px; height: 34px; } .tag .nm { font-size: 14px; } .tag .cost { font-size: 14px; padding: 0 3px; }
     #dock { gap: 5px; } #coins .big { font-size: 24px; } #coins .ic { width: 38px; height: 38px; } .rbtn { width: 52px; height: 52px; font-size: 28px; }
     #reveal .rib { font-size: 24px; padding: 5px 18px 8px; }
   }
-  @media (max-height: 480px) { .tag { padding: 3px 4px; } .tag .ic { font-size: 26px; height: 28px; } #reveal { top: 54px; } }
+  @media (max-height: 480px) { #banner { top: 23%; } #banner .bt { font-size: 36px; } #warm .nm { bottom: auto; top: -18px; } .tag { padding: 3px 4px; } .tag .ic { font-size: 26px; height: 28px; } #reveal { top: 54px; } }
 </style>
 
 <script>window.PLATFORM = "web";</script>

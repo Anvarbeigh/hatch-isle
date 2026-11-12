@@ -94,8 +94,6 @@ function placeCamera(time = 0) {
   const tgt = look.clone().lerp(new THREE.Vector3(NEST.x, 0.9, NEST.z), camZoom * 0.6);
   const d = dist * (1 - camZoom * 0.3);
   camera.position.copy(tgt).addScaledVector(dir, d);
-  camera.position.x += Math.sin(time * 0.13) * 0.5;
-  camera.position.y += Math.sin(time * 0.17) * 0.15;
   camera.lookAt(tgt);
   camera.updateProjectionMatrix();
 }
@@ -390,7 +388,6 @@ function burst() {
   if (def.r >= 2) fx.pillar(new THREE.Vector3(NEST.x, 0, NEST.z), RARITY[def.r].color);
   audio.play(!had ? 'hatch_rare' : 'hatch', { vol: 0.7 });           // new pet: the longer jingle
   if (def.r >= 3) platform.happytime();
-  shake = 0.35;
   if (!had) { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
   // pet appears on the nest
   revealPet = spawnPet(def, new THREE.Vector3(NEST.x, 0.45, NEST.z));
@@ -440,7 +437,7 @@ function nextEgg() {
 let unlockedSeen = null;
 function checkUnlocks() {
   const now = EGGS.map((_, i) => eggUnlocked(i));
-  if (unlockedSeen) now.forEach((u, i) => { if (u && !unlockedSeen[i]) { S.sel = i; setTimeout(() => { banner(t('newEgg'), t('egg')[i], i); confetti(50); audio.play('unlock', { vol: 0.7 }); camKick = 1; }, 900); } });
+  if (unlockedSeen) now.forEach((u, i) => { if (u && !unlockedSeen[i]) { S.sel = i; setTimeout(() => { banner(t('newEgg'), t('egg')[i], i); confetti(50); audio.play('unlock', { vol: 0.7 }); }, 900); } });
   unlockedSeen = now;
 }
 function showReveal(def, stars, isNew) {
@@ -602,7 +599,7 @@ function openEggs() {
     return `<div class="eggrow ${on ? 'on' : ''} ${lock ? 'lock' : ''} ${next ? 'next' : ''}">${eggSvg(i, lock)}<div class="mid"><div class="nm">${t('egg')[i]}</div><div style="font-weight:800;font-size:14px">${sub}</div><div class="pets">${petsH}</div><div class="odds">${found}/4 · ${ni ? t('newIn', { n: ni }) : t('setDone')}</div></div>${btn}</div>`;
   }).join('');
   const odds = RARITY.map((r, i) => `<span style="color:${r.color}">${t('rarity')[i]} ${r.weight}%</span>`).join(' · ');
-  openPanel(`<div class="ribbon wood ot">${t('eggsTitle')}</div><button class="x">✕</button><p class="sub">${t('eggsSub')}</p><p class="sub" style="font-size:13px">${t('chance')}: ${odds}<br><b>${t('pityInfo', { n: PITY })}</b></p><div class="scroll">${rows}</div>`);
+  openPanel(`<div class="ribbon wood ot">${t('eggsTitle')}</div><button class="x">✕</button><p class="sub">${t('eggsSub')}</p><p class="sub" style="font-size:14px">${t('chance')}: ${odds}<br><b>${t('pityInfo', { n: PITY })}</b></p><div class="scroll">${rows}</div>`);
   veil.querySelectorAll('[data-egg]').forEach((b) => b.addEventListener('click', () => {
     S.sel = +b.dataset.egg; audio.play('click');
     // swap the current egg right away if it hasn't been warmed yet
@@ -767,10 +764,9 @@ function step(dt) {
     world.update(time);
     saveT += dt; if (saveT > 5) { saveT = 0; save(); }
   }
-  camKick = Math.max(0, camKick - dt * 0.8);
-  camZoom += ((forceZoom !== null ? forceZoom : (revealPet && !revealDupe) || egg.state === 'shake' ? 1 : revealPet ? 0.35 : Math.sin(camKick * Math.PI) * 0.45) - camZoom) * Math.min(1, dt * 4);
+  // no camera shake or punches (motion-sickness rule): only one slow, gentle dolly while a NEW pet is revealed
+  camZoom += ((forceZoom !== null ? forceZoom : (revealPet && !revealDupe) ? 0.55 : 0) - camZoom) * Math.min(1, dt * 1.6);
   placeCamera(time);
-  if (shake > 0) { shake = Math.max(0, shake - dt); camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake; }
   placeHudOverEgg();
   updateHud();
 }
