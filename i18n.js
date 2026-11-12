@@ -28,6 +28,8 @@ const STR = {
     notEnough: 'Not enough coins', nextEggFree: 'Not enough coins: a free Meadow Egg instead',
     unlocked: '{egg} unlocked!', sound: 'Sound', music: 'Music', close: 'Close',
     hatchHint: 'Pets walk around and drop coins',
+    newIn: 'new pet in ≤{n} hatches', setDone: 'all found!', newShort: 'new ≤{n}',
+    pityInfo: 'Fair hatching: a pet you don\'t have yet is guaranteed at least every {n} hatches of the same egg.',
   },
   ru: {
     docTitle: 'Остров Питомцев', title: 'Остров Питомцев', loading: 'Загрузка…',
@@ -57,6 +59,8 @@ const STR = {
     notEnough: 'Не хватает монет', nextEggFree: 'Не хватает монет: бесплатное луговое яйцо',
     unlocked: '{egg}: открыто!', sound: 'Звук', music: 'Музыка', close: 'Закрыть',
     hatchHint: 'Питомцы гуляют и приносят монеты',
+    newIn: 'новый питомец не позже чем через {n}', setDone: 'все найдены!', newShort: 'новый ≤{n}',
+    pityInfo: 'Честно: нового питомца гарантированно дают не реже, чем каждые {n} вылуплений одного яйца.',
   },
 };
 STR.ru.egg[4] = 'Вулканическое яйцо';

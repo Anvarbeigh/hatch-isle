@@ -12,11 +12,11 @@ export const RARITY = [
 
 // egg types, in unlock order
 export const EGGS = [
-  { key: 'meadow', base: '#fff3d6', spot: '#8cc265', spot2: '#5f9f45', heat: 12, cost: 0, coin: 1, need: 0 },
+  { key: 'meadow', base: '#fff3d6', spot: '#8cc265', spot2: '#5f9f45', heat: 14, cost: 0, coin: 1, need: 0 },
   { key: 'forest', base: '#d9ecb4', spot: '#7a5a3a', spot2: '#4f8a3a', heat: 45, cost: 250, coin: 4, need: 3 },
-  { key: 'snow', base: '#eef7ff', spot: '#8cc8f0', spot2: '#4f8fd0', heat: 140, cost: 2500, coin: 15, need: 3 },
-  { key: 'beach', base: '#ffe2a8', spot: '#3cc2c0', spot2: '#ff8a5c', heat: 420, cost: 20000, coin: 55, need: 3 },
-  { key: 'volcano', base: '#5a2b2b', spot: '#ff8a2a', spot2: '#ffd04a', heat: 1200, cost: 150000, coin: 200, need: 3 },
+  { key: 'snow', base: '#eef7ff', spot: '#8cc8f0', spot2: '#4f8fd0', heat: 140, cost: 2000, coin: 15, need: 3 },
+  { key: 'beach', base: '#ffe2a8', spot: '#3cc2c0', spot2: '#ff8a5c', heat: 380, cost: 10000, coin: 55, need: 3 },
+  { key: 'volcano', base: '#5a2b2b', spot: '#ff8a2a', spot2: '#ffd04a', heat: 1000, cost: 45000, coin: 200, need: 3 },
 ];
 
 export const ANIMALS = [

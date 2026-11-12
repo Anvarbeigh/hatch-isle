@@ -18,28 +18,33 @@ const LOW = isTouch || Q.get('q') === 'low';
 // ---------------- economy ----------------
 const tapPower = (l) => Math.max(1, Math.round(Math.pow(l, 1.5)));
 const COST = {
-  tap: (l) => Math.round(15 * Math.pow(1.62, l - 1)),
-  lamp: (l) => Math.round(60 * Math.pow(1.72, l)),
-  treats: (l) => Math.round(120 * Math.pow(1.68, l)),
+  tap: (l) => Math.round(15 * Math.pow(2.05, l - 1)),
+  lamp: (l) => Math.round(60 * Math.pow(2.1, l)),
+  treats: (l) => Math.round(120 * Math.pow(2.1, l)),
 };
 const MAXLV = { tap: 40, lamp: 30, treats: 30 };
 const autoRate = (l) => (l <= 0 ? 0 : 0.6 + 0.4 * (l - 1));       // automatic taps per second
 const treatsMult = (l) => 1 + 0.3 * l;
 const DROP_EVERY = 3.5;
+const HEAT_GROW = 1.6, HEAT_CAP = 3000, COST_GROW = 1.3;
+const tapCoins = () => tapPower(S.tap) * (1 + S.egg.type);       // coins per tap: grows a little with the egg tier   // each egg type gets warmer-to-hatch and pricier the more you hatch it
+const eggCost = (i) => (EGGS[i].cost ? Math.round(EGGS[i].cost * Math.pow(COST_GROW, S.eh[i] || 0) / 10) * 10 : 0);
+const PITY = 5;                 // a new pet at least every 5th hatch of an egg
+const newIn = (egg) => (ANIMALS.some((a) => a.egg === egg && !S.pets[a.id]) ? PITY - (S.miss[egg] || 0) : 0);
 const BOOST_MS = 180000;
 const OFFLINE_MAX = 2 * 3600;
 
 const fresh = () => ({ v: 1, coins: 0, total: 0, tap: 1, lamp: 0, treats: 0, sel: 0, egg: { type: 0, heat: 0, seed: 1 }, pets: {}, hatched: 0,
-  boostUntil: 0, lastSeen: Date.now(), sound: true, music: true });
+  boostUntil: 0, lastSeen: Date.now(), sound: true, music: true, miss: [0, 0, 0, 0, 0], eh: [0, 0, 0, 0, 0] });
 let S = fresh();
 
-const petIncome = (id, stars) => { const a = ANIMALS.find((x) => x.id === id); return EGGS[a.egg].coin * 2 * RARITY[a.r].mult * (1 + 0.5 * (stars - 1)); };
+const petIncome = (id, stars) => { const a = ANIMALS.find((x) => x.id === id); return EGGS[a.egg].coin * RARITY[a.r].mult * (1 + 0.5 * (stars - 1)); };
 const boostMult = () => (Date.now() < S.boostUntil ? 2 : 1);
 function ratePerSec(withBoost = true) {
   let r = 0;
   for (const [id, st] of Object.entries(S.pets)) r += petIncome(id, st) / DROP_EVERY;
   r *= treatsMult(S.treats);
-  r += autoRate(S.lamp) * tapPower(S.tap) * EGGS[S.egg.type].coin;
+  r += autoRate(S.lamp) * tapCoins();
   return r * (withBoost ? boostMult() : 1);
 }
 const speciesFound = (egg) => ANIMALS.filter((a) => a.egg === egg && S.pets[a.id]).length;
@@ -301,7 +306,7 @@ function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.
 
 // ---------------- the egg ----------------
 const egg = { squash: 0, sv: 0, tiltX: 0, tiltZ: 0, tv: new THREE.Vector2(), state: 'idle', t: 0, drop: 0 };
-const eggHeat = () => EGGS[S.egg.type].heat;
+const eggHeat = () => Math.round(EGGS[S.egg.type].heat * Math.min(HEAT_CAP, Math.pow(HEAT_GROW, S.eh[S.egg.type] || 0)));
 const crackStage = () => { const k = S.egg.heat / eggHeat(); return k < 0.3 ? 0 : k < 0.6 ? 1 : k < 0.85 ? 2 : 3; };
 function refreshEgg() { world.setEgg(S.egg.type, crackStage(), S.egg.seed); }
 function warmEgg(amount, coins, auto = false) {
@@ -322,7 +327,7 @@ function warmEgg(amount, coins, auto = false) {
 }
 function tapEgg() {
   const tp = tapPower(S.tap) * boostMult();
-  warmEgg(tapPower(S.tap), tp * EGGS[S.egg.type].coin);
+  warmEgg(tapPower(S.tap), tapCoins() * boostMult());
   if (!S.hatched && hintTaps++ > 2) $('hintT').textContent = t('tapMore');
 }
 let hintTaps = 0;
@@ -336,6 +341,13 @@ function pickPet() {
   if (forcePick) { const f = ANIMALS.find((a) => a.id === forcePick); forcePick = null; return f; }
   if (!S.hatched) return ANIMALS[0];                       // first hatch is always the chick
   const pool = ANIMALS.filter((a) => a.egg === type);
+  // fairness: a new (missing) pet is guaranteed at least every PITY hatches of the same egg
+  const missing = pool.filter((a) => !S.pets[a.id]);
+  if (missing.length && (S.miss[type] || 0) >= PITY - 1) {
+    let q = Math.random() * missing.reduce((s, a) => s + RARITY[a.r].weight, 0);
+    for (const a of missing) { q -= RARITY[a.r].weight; if (q <= 0) return a; }
+    return missing[0];
+  }
   let r = Math.random() * pool.reduce((s, a) => s + RARITY[a.r].weight, 0);
   for (const a of pool) { r -= RARITY[a.r].weight; if (r <= 0) return a; }
   return pool[0];
@@ -344,6 +356,10 @@ function burst() {
   const def = pickPet();
   const had = S.pets[def.id] || 0;
   revealDupe = had > 0;
+  const eggT = S.egg.type;
+  S.eh[eggT] = (S.eh[eggT] || 0) + 1;
+  if (!had) S.miss[eggT] = 0;
+  else if (ANIMALS.some((a) => a.egg === eggT && !S.pets[a.id])) S.miss[eggT] = (S.miss[eggT] || 0) + 1;
   S.pets[def.id] = Math.min(5, had + 1);
   if (had >= 5) earn(petIncome(def.id, 5) * 20);
   S.hatched++;
@@ -390,7 +406,7 @@ function endReveal() {
 function nextEgg() {
   let type = S.sel;
   if (!eggUnlocked(type)) type = 0;
-  const cost = EGGS[type].cost;
+  const cost = eggCost(type);
   if (cost > 0) {
     if (S.coins >= cost) { S.coins -= cost; audio.play('buy', { vol: 0.5 }); }
     else { type = 0; toast(t('nextEggFree')); }
@@ -517,7 +533,7 @@ function placeHudOverEgg() {
   const w = $('warm');
   w.style.left = c.x + 'px'; w.style.top = c.y + 'px'; w.style.width = w.style.height = size + 'px';
   w.classList.toggle('hidden', egg.state !== 'idle');
-  $('warmN').textContent = t('egg')[S.egg.type];
+  { const ni = newIn(S.egg.type); $('warmN').textContent = t('egg')[S.egg.type] + (ni && S.hatched ? ' · ' + t('newShort', { n: ni }) : ''); }
   $('warmF').style.strokeDashoffset = String(289 * (1 - S.egg.heat / eggHeat()));
   const h = $('hint');
   const side = toScreen(tmpV.set(NEST.x + 1.0, 1.6, NEST.z));
@@ -545,22 +561,23 @@ function eggSvg(i, lock) {
 }
 function openEggs() {
   const rows = EGGS.map((e, i) => {
-    const lock = !eggUnlocked(i), on = S.sel === i, next = !lock && !on && i > S.sel && S.coins >= e.cost;
-    const petsH = ANIMALS.filter((a) => a.egg === i).map((a) => (S.pets[a.id] ? `<img src="${portrait(a.id)}" alt="">` : `<div class="q">?</div>`)).join('');
+    const lock = !eggUnlocked(i), on = S.sel === i, next = !lock && !on && i > S.sel && S.coins >= eggCost(i);
+    const petsH = ANIMALS.filter((a) => a.egg === i).map((a) => `<div class="pc ${S.pets[a.id] ? '' : 'miss'}" style="border-color:${RARITY[a.r].color}"><img src="${portrait(a.id)}" alt=""><b style="background:${RARITY[a.r].color}">${RARITY[a.r].weight}%</b></div>`).join('');
+    const ni = newIn(i), found = speciesFound(i);
     const btn = lock ? `<button class="pbtn" disabled><svg class="i"><use href="#i-lock"/></svg></button>`
       : on ? `<button class="pbtn flat" disabled>${t('selected')}</button>`
-      : `<button class="pbtn ${e.cost ? 'gold' : ''}" data-egg="${i}">${t('select')}</button>`;
-    const sub = lock ? t('locked', { n: 2, egg: t('eggShort')[i - 1] }) : (e.cost ? `<svg class="i"><use href="#i-coin"/></svg> ${fmt(e.cost)}` : t('free'));
-    return `<div class="eggrow ${on ? 'on' : ''} ${lock ? 'lock' : ''} ${next ? 'next' : ''}">${eggSvg(i, lock)}<div class="mid"><div class="nm">${t('egg')[i]}</div><div style="font-weight:800;font-size:14px">${sub}</div><div class="pets">${petsH}</div></div>${btn}</div>`;
+      : `<button class="pbtn ${eggCost(i) ? 'gold' : ''}" data-egg="${i}">${t('select')}</button>`;
+    const sub = lock ? t('locked', { n: 2, egg: t('eggShort')[i - 1] }) : (eggCost(i) ? `<svg class="i"><use href="#i-coin"/></svg> ${fmt(eggCost(i))}` : t('free'));
+    return `<div class="eggrow ${on ? 'on' : ''} ${lock ? 'lock' : ''} ${next ? 'next' : ''}">${eggSvg(i, lock)}<div class="mid"><div class="nm">${t('egg')[i]}</div><div style="font-weight:800;font-size:14px">${sub}</div><div class="pets">${petsH}</div><div class="odds">${found}/4 · ${ni ? t('newIn', { n: ni }) : t('setDone')}</div></div>${btn}</div>`;
   }).join('');
   const odds = RARITY.map((r, i) => `<span style="color:${r.color}">${t('rarity')[i]} ${r.weight}%</span>`).join(' · ');
-  openPanel(`<div class="ribbon wood ot">${t('eggsTitle')}</div><button class="x">✕</button><p class="sub">${t('eggsSub')}</p><p class="sub" style="font-size:12px">${t('chance')}: ${odds}</p><div class="scroll">${rows}</div>`);
+  openPanel(`<div class="ribbon wood ot">${t('eggsTitle')}</div><button class="x">✕</button><p class="sub">${t('eggsSub')}</p><p class="sub" style="font-size:13px">${t('chance')}: ${odds}<br><b>${t('pityInfo', { n: PITY })}</b></p><div class="scroll">${rows}</div>`);
   veil.querySelectorAll('[data-egg]').forEach((b) => b.addEventListener('click', () => {
     S.sel = +b.dataset.egg; audio.play('click');
     // swap the current egg right away if it hasn't been warmed yet
-    if (S.egg.heat === 0 && egg.state === 'idle' && S.egg.type !== S.sel && S.coins >= EGGS[S.sel].cost) {
-      S.coins -= EGGS[S.sel].cost; S.egg = { type: S.sel, heat: 0, seed: 1 + Math.floor(Math.random() * 9999) }; refreshEgg(); egg.state = 'drop'; egg.t = 0;
-    } else if (S.coins < EGGS[S.sel].cost) toast(t('notEnough'));
+    if (S.egg.heat === 0 && egg.state === 'idle' && S.egg.type !== S.sel && S.coins >= eggCost(S.sel)) {
+      S.coins -= eggCost(S.sel); S.egg = { type: S.sel, heat: 0, seed: 1 + Math.floor(Math.random() * 9999) }; refreshEgg(); egg.state = 'drop'; egg.t = 0;
+    } else if (S.coins < eggCost(S.sel)) toast(t('notEnough'));
     save(); openEggs();
   }));
 }
@@ -689,6 +706,8 @@ function save() { S.lastSeen = Date.now(); const s = JSON.stringify(S); platform
 async function load() {
   if (Q.has('reset')) return;
   try { const s = await platform.loadSave(); if (s) S = Object.assign(fresh(), JSON.parse(s)); } catch (e) { S = fresh(); }
+  if (!Array.isArray(S.miss)) S.miss = [0, 0, 0, 0, 0];
+  if (!Array.isArray(S.eh)) S.eh = [0, 0, 0, 0, 0];
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 addEventListener('pagehide', save);
@@ -707,7 +726,7 @@ function step(dt) {
     // Warm Lamp: automatic taps
     if (S.lamp > 0 && egg.state === 'idle') {
       autoAcc += autoRate(S.lamp) * dt;
-      while (autoAcc >= 1) { autoAcc -= 1; warmEgg(tapPower(S.tap), tapPower(S.tap) * EGGS[S.egg.type].coin * boostMult(), true); }
+      while (autoAcc >= 1) { autoAcc -= 1; warmEgg(tapPower(S.tap), tapCoins() * boostMult(), true); }
       world.bulb.material.color.setHSL(0.12, 1, 0.7 + Math.sin(time * 8) * 0.08);
     }
     for (const p of pets) updatePet(p, dt, time);
@@ -768,9 +787,10 @@ function openOffline(v) {
 function flyBurst() { for (let i = 0; i < 10; i++) setTimeout(() => flyCoin(new THREE.Vector3((Math.random() - 0.5) * 4, 1, NEST.z), 0), i * 50); updateHud(true); save(); }
 
 if (DEBUG) {
+  window.__animals = ANIMALS; window.__eggs = EGGS; window.__cost = COST; window.__unlocked = eggUnlocked; window.__eggCost = eggCost;
   window.__game = {
     get S() { return S; }, set S(v) { S = v; }, pets, tapEgg, buy, egg, world, camera, renderer,
-    sim(n, dt = 1 / 60) { for (let i = 0; i < n; i++) step(dt); renderer.render(scene, camera); },
+    sim(n, dt = 1 / 60, render = !window.__noRender) { for (let i = 0; i < n; i++) step(dt); if (render) renderer.render(scene, camera); },
     endReveal, get revealing() { return !!revealPet; }, openEggs, openBook, openBoost, closePanel, portrait,
     give(c) { S.coins += c; updateHud(true); },
     pick(id) { forcePick = id; }, zoom(z) { forceZoom = z; },
