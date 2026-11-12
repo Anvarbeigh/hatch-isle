@@ -12,8 +12,12 @@ function makeCtx() {
   if (ctx) return;
   try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
   // gentle limiter so stacked sounds never clip, then +6 dB make-up
-  const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -6; lim.knee.value = 6; lim.ratio.value = 8; lim.attack.value = 0.003; lim.release.value = 0.15; lim.connect(ctx.destination);
-  master = ctx.createGain(); master.gain.value = 2.0; master.connect(lim);
+  // bus: gentle glue compressor -> brickwall-style limiter at -1 dBFS -> soft clip ceiling (never above -1 dBTP)
+  const ceil = ctx.createWaveShaper(); { const n = 2048, c = new Float32Array(n), L = 0.6; for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.abs(x) < 0.7 * L ? x : Math.sign(x) * (0.7 * L + (L - 0.7 * L) * Math.tanh((Math.abs(x) - 0.7 * L) / (L - 0.7 * L))); } ceil.curve = c; ceil.oversample = '4x'; }
+  ceil.connect(ctx.destination);
+  const brick = ctx.createDynamicsCompressor(); brick.threshold.value = -6; brick.knee.value = 0; brick.ratio.value = 20; brick.attack.value = 0.001; brick.release.value = 0.08; brick.connect(ceil);
+  const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -12; lim.knee.value = 8; lim.ratio.value = 3; lim.attack.value = 0.005; lim.release.value = 0.2; lim.connect(brick);
+  master = ctx.createGain(); master.gain.value = 1.4; master.connect(lim);
   sfxGain = ctx.createGain(); sfxGain.connect(master);
   musicGain = ctx.createGain(); musicGain.gain.value = 0.0; musicGain.connect(master);
   for (const name of SFX) {

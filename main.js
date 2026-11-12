@@ -12,8 +12,8 @@ const DEBUG = Q.has('debug');
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => { n = Math.floor(n); if (n < 10000) return String(n); const u = ['K', 'M', 'B', 'T']; let i = -1; let v = n; while (v >= 1000 && i < u.length - 1) { v /= 1000; i++; } return (v < 100 ? v.toFixed(1).replace(/\.0$/, '') : Math.floor(v)) + u[i]; };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
-const LOW = isTouch || Q.get('q') === 'low';
+// phones/tablets get the lighter quality tier (device class from the UA; CrazyGames' systemInfo.device needs the SDK, which inits later)
+const LOW = /Android|iPhone|iPad|iPod|Mobile|Silk/i.test(navigator.userAgent) || navigator.userAgentData?.mobile || Q.get('q') === 'low';
 
 // ---------------- economy ----------------
 const tapPower = (l) => Math.max(1, Math.round(Math.pow(l, 1.5)));
@@ -26,16 +26,18 @@ const MAXLV = { tap: 40, lamp: 30, treats: 30 };
 const autoRate = (l) => (l <= 0 ? 0 : 0.6 + 0.4 * (l - 1));       // automatic taps per second
 const treatsMult = (l) => 1 + 0.3 * l;
 const DROP_EVERY = 3.5;
-const HEAT_GROW = 1.6, HEAT_CAP = 3000, COST_GROW = 1.3;
+const HEAT_GROW = 1.3, HEAT_CAP = 8, COST_GROW = 1.5;
 const tapCoins = () => tapPower(S.tap) * (1 + S.egg.type);       // coins per tap: grows a little with the egg tier   // each egg type gets warmer-to-hatch and pricier the more you hatch it
-const eggCost = (i) => (EGGS[i].cost ? Math.round(EGGS[i].cost * Math.pow(COST_GROW, S.eh[i] || 0) / 10) * 10 : 0);
-const PITY = 5;                 // a new pet at least every 5th hatch of an egg
+// egg price grows with each NEW species found in that egg (max ×5), never per hatch, so the last pets stay reachable
+const eggCost = (i) => (EGGS[i].cost ? Math.round(EGGS[i].cost * Math.pow(COST_GROW, speciesFound(i)) / 10) * 10 : 0);
+const PITY = 3;                 // a new pet at least every 3rd hatch of an egg (and on each of the first 3 hatches)
+const SET_BONUS = [150, 1200, 12000, 120000, 1000000];
 const newIn = (egg) => (ANIMALS.some((a) => a.egg === egg && !S.pets[a.id]) ? PITY - (S.miss[egg] || 0) : 0);
 const BOOST_MS = 180000;
 const OFFLINE_MAX = 2 * 3600;
 
 const fresh = () => ({ v: 1, coins: 0, total: 0, tap: 1, lamp: 0, treats: 0, sel: 0, egg: { type: 0, heat: 0, seed: 1 }, pets: {}, hatched: 0,
-  boostUntil: 0, lastSeen: Date.now(), sound: true, music: true, miss: [0, 0, 0, 0, 0], eh: [0, 0, 0, 0, 0] });
+  boostUntil: 0, lastSeen: Date.now(), sound: true, music: true, miss: [0, 0, 0, 0, 0], eh: [0, 0, 0, 0, 0], setDone: [0, 0, 0, 0, 0] });
 let S = fresh();
 
 const petIncome = (id, stars) => { const a = ANIMALS.find((x) => x.id === id); return EGGS[a.egg].coin * RARITY[a.r].mult * (1 + 0.5 * (stars - 1)); };
@@ -139,7 +141,7 @@ function updatePet(p, dt, time) {
     const dx = j.to.x - j.from.x, dz = j.to.z - j.from.z; if (Math.hypot(dx, dz) > 0.1) p.heading = lerpAngle(p.heading, Math.atan2(dx, dz), dt * 8);
     m.pivot.scale.set(1 - 0.12 * Math.sin(Math.PI * k), 1 + 0.2 * Math.sin(Math.PI * k), 1);
     m.wings.forEach((w, i) => { w.rotation.z = (i ? -1 : 1) * (0.4 + Math.sin(time * 30) * 0.6); });
-    if (k >= 1) { p.pos.y = 0; p.state = 'land'; p.t = 0; fx.puff(p.pos, 6); audio.play('land', { vol: 0.35, rate: 1.2 }); }
+    if (k >= 1) { p.pos.y = 0; p.state = 'land'; p.t = 0; fx.puff(p.pos, 6); audio.play('land', { vol: 0.5, rate: 1.2 }); }
   } else if (p.state === 'land') {
     const k = clamp(p.t / 0.25, 0, 1); const sq = Math.sin(Math.PI * k) * 0.25;
     m.pivot.scale.set(1 + sq, 1 - sq, 1 + sq);
@@ -290,7 +292,7 @@ function flyCoin(pos, v) {
     { transform: `translate(${s.x - 13}px, ${s.y - 13}px) scale(.6)` },
     { transform: `translate(${mx - 13}px, ${my - 13}px) scale(1.15)`, offset: 0.45 },
     { transform: `translate(${tx - 13}px, ${ty - 13}px) scale(.8)` }], { duration: 650 + Math.random() * 150, easing: 'cubic-bezier(.5,0,.7,1)' });
-  an.onfinish = () => { el.remove(); flying--; bumpCoins(); audio.play('coin', { vol: 0.35, rate: [1, 1.122, 1.26][Math.floor(Math.random() * 3)] }); };
+  an.onfinish = () => { el.remove(); flying--; bumpCoins(); { const n = performance.now(); if (n - (flyCoin.s || 0) > 110) { flyCoin.s = n; audio.play('coin', { vol: 0.45, rate: [1, 1.122, 1.26][Math.floor(Math.random() * 3)] }); } } };
 }
 let bumpT = 0;
 function bumpCoins() { const now = performance.now(); if (now - bumpT < 90) return; bumpT = now; coinsEl.classList.remove('bump'); void coinsEl.offsetWidth; coinsEl.classList.add('bump'); }
@@ -300,12 +302,29 @@ function floatText(x, y, html, color, cls = '') {
   const dx = (Math.random() - 0.5) * 50;
   el.animate([{ transform: 'translate(-50%,0) scale(.6)', opacity: 1 }, { transform: `translate(calc(-50% + ${dx}px),-40px) scale(1.1)`, opacity: 1, offset: 0.3 }, { transform: `translate(calc(-50% + ${dx}px),-90px) scale(1)`, opacity: 0 }], { duration: 900, easing: 'ease-out' }).onfinish = () => el.remove();
 }
+function banner(title, sub, egg = null) {
+  const el = $('banner');
+  el.innerHTML = `<div class="bt ot">${title}</div><div class="bs wood"><span class="ot">${sub}</span></div>`;
+  el.classList.remove('hidden', 'go'); void el.offsetWidth; el.classList.add('go');
+  clearTimeout(banner.t); banner.t = setTimeout(() => el.classList.add('hidden'), 2600);
+}
+const CONF = ['#ffc93d', '#ff6a8a', '#6cc04a', '#4fa8e0', '#b06ee0', '#fff3d6'];
+function confetti(n) {
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('i'); el.className = 'conf'; el.style.background = CONF[i % CONF.length];
+    const x = innerWidth * (0.2 + Math.random() * 0.6), y = innerHeight * 0.35;
+    el.style.left = x + 'px'; el.style.top = y + 'px'; document.body.appendChild(el);
+    const a = Math.random() * Math.PI * 2, v = 120 + Math.random() * 260;
+    el.animate([{ transform: 'translate(0,0) rotate(0)', opacity: 1 }, { transform: `translate(${Math.cos(a) * v}px, ${Math.sin(a) * v * 0.6 - 120}px) rotate(${Math.random() * 720}deg)`, opacity: 1, offset: 0.35 },
+      { transform: `translate(${Math.cos(a) * v * 1.3}px, ${innerHeight * 0.5}px) rotate(${Math.random() * 1080}deg)`, opacity: 0 }], { duration: 1400 + Math.random() * 600, easing: 'cubic-bezier(.2,.6,.4,1)' }).onfinish = () => el.remove();
+  }
+}
 function ripple(x, y) { const el = document.createElement('div'); el.className = 'ripple'; el.style.left = x + 'px'; el.style.top = y + 'px'; document.body.appendChild(el); setTimeout(() => el.remove(), 450); }
 let toastT = 0;
 function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.remove('hidden'); el.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { el.style.opacity = 0; setTimeout(() => el.classList.add('hidden'), 300); }, 2200); }
 
 // ---------------- the egg ----------------
-const egg = { squash: 0, sv: 0, tiltX: 0, tiltZ: 0, tv: new THREE.Vector2(), state: 'idle', t: 0, drop: 0 };
+const egg = { position: world.eggGroup.position, squash: 0, sv: 0, tiltX: 0, tiltZ: 0, tv: new THREE.Vector2(), state: 'idle', t: 0, drop: 0 };
 const eggHeat = () => Math.round(EGGS[S.egg.type].heat * Math.min(HEAT_CAP, Math.pow(HEAT_GROW, S.eh[S.egg.type] || 0)));
 const crackStage = () => { const k = S.egg.heat / eggHeat(); return k < 0.3 ? 0 : k < 0.6 ? 1 : k < 0.85 ? 2 : 3; };
 function refreshEgg() { world.setEgg(S.egg.type, crackStage(), S.egg.seed); }
@@ -322,7 +341,7 @@ function warmEgg(amount, coins, auto = false) {
     fx.sparkle(tmpV.set(NEST.x, 1.0, NEST.z), 0xffd27a, 6, 1.8); fx.tapRing();
   } else { egg.sv += 1.5; }
   const after = crackStage();
-  if (after !== before) { refreshEgg(); audio.play('crack', { vol: 0.8 }); egg.sv += 6; fx.puff(tmpV.set(NEST.x, 0.9, NEST.z), 5, 0xfff3d6); }
+  if (after !== before) { refreshEgg(); audio.play('crack', { vol: 0.6 }); egg.sv += 6; fx.puff(tmpV.set(NEST.x, 0.9, NEST.z), 5, 0xfff3d6); }
   if (S.egg.heat >= eggHeat()) startHatch();
 }
 function tapEgg() {
@@ -343,7 +362,7 @@ function pickPet() {
   const pool = ANIMALS.filter((a) => a.egg === type);
   // fairness: a new (missing) pet is guaranteed at least every PITY hatches of the same egg
   const missing = pool.filter((a) => !S.pets[a.id]);
-  if (missing.length && (S.miss[type] || 0) >= PITY - 1) {
+  if (missing.length && ((S.miss[type] || 0) >= PITY - 1 || S.hatched < 3)) {
     let q = Math.random() * missing.reduce((s, a) => s + RARITY[a.r].weight, 0);
     for (const a of missing) { q -= RARITY[a.r].weight; if (q <= 0) return a; }
     return missing[0];
@@ -369,7 +388,7 @@ function burst() {
   fx.puff(pos, 10); fx.ring(pos);
   fx.sparkle(pos, RARITY[def.r].color, 10 + def.r * 8, 2);
   if (def.r >= 2) fx.pillar(new THREE.Vector3(NEST.x, 0, NEST.z), RARITY[def.r].color);
-  audio.play(!had ? 'hatch_rare' : 'hatch', { vol: 0.8 });           // new pet: the longer jingle
+  audio.play(!had ? 'hatch_rare' : 'hatch', { vol: 0.7 });           // new pet: the longer jingle
   if (def.r >= 3) platform.happytime();
   shake = 0.35;
   { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
@@ -397,7 +416,9 @@ function endReveal() {
   } else {
     pets.push(p); p.pos.set(NEST.x, 0.45, NEST.z); jumpTo(p, freeSpot(), 0.9, 2.4);
     if (S.hatched === 1) setTimeout(() => toast(t('hatchHint')), 900);
-    checkUnlocks(); updateDex(true);
+    checkUnlocks(); updateDex(true); confetti(18);
+    const ei = p.def.egg;
+    if (!S.setDone[ei] && speciesFound(ei) === 4) { S.setDone[ei] = 1; const b = SET_BONUS[ei]; earn(b); setTimeout(() => { banner(t('setDone2', { egg: t('eggShort')[ei] }), `+${fmt(b)}`); confetti(60); audio.play('unlock', { vol: 0.7 }); flyBurst(); }, 700); }
   }
   nextEgg();
   maybeMidgame();
@@ -409,7 +430,7 @@ function nextEgg() {
   const cost = eggCost(type);
   if (cost > 0) {
     if (S.coins >= cost) { S.coins -= cost; audio.play('buy', { vol: 0.5 }); }
-    else { type = 0; toast(t('nextEggFree')); }
+    else { type = 0; if (Date.now() - (nextEgg.t || 0) > 30000) { nextEgg.t = Date.now(); toast(t('nextEggFree')); } }
   }
   S.egg = { type, heat: 0, seed: 1 + Math.floor(Math.random() * 9999) };
   refreshEgg();
@@ -419,14 +440,14 @@ function nextEgg() {
 let unlockedSeen = null;
 function checkUnlocks() {
   const now = EGGS.map((_, i) => eggUnlocked(i));
-  if (unlockedSeen) now.forEach((u, i) => { if (u && !unlockedSeen[i]) { setTimeout(() => { toast(t('unlocked', { egg: t('egg')[i] })); audio.play('unlock', { vol: 0.6 }); }, 1200); } });
+  if (unlockedSeen) now.forEach((u, i) => { if (u && !unlockedSeen[i]) { S.sel = i; setTimeout(() => { banner(t('newEgg'), t('egg')[i], i); confetti(50); audio.play('unlock', { vol: 0.7 }); camKick = 1; }, 900); } });
   unlockedSeen = now;
 }
 function showReveal(def, stars, isNew) {
   const el = $('reveal');
   el.innerHTML = `${isNew ? `<div class="new ot">${t('newPet')}</div>` : `<div class="new ot">${t('dupe')}</div>`}
     <div class="rib" style="background:${RARITY[def.r].color}"><span class="ot">${t('pets.' + def.id)}</span></div><br>
-    <div class="tg">${t('rarity')[def.r]} · ${'★'.repeat(stars)}${'<span style="opacity:.25">★</span>'.repeat(5 - stars)}</div>`;
+    <div class="tg">${t('rarity')[def.r]} · ${'★'.repeat(stars)}${'<span style="opacity:.25">★</span>'.repeat(5 - stars)} · ${speciesFound(def.egg)}/4 ${t('eggShort')[def.egg]}</div>`;
   el.classList.remove('hidden');
 }
 function updateEgg(dt, time) {
@@ -483,12 +504,14 @@ function buy(kind) {
   const lv = S[kind];
   if (lv >= MAXLV[kind]) return;
   const c = COST[kind](kind === 'tap' ? lv : lv);
-  if (S.coins < c) { audio.play('error', { vol: 0.4 }); toast(t('notEnough')); return; }
+  if (S.coins < c) { audio.play('error', { vol: 0.55 }); toast(t('notEnough')); return; }
   S.coins -= c; S[kind]++;
   audio.play('buy', { vol: 0.6 });
   if (kind === 'lamp' && S.lamp === 1) { world.lamp.visible = true; fx.puff(world.lamp.position, 10); }
   if (kind === 'treats' && S.treats === 1) { world.bowl.visible = true; fx.puff(world.bowl.position, 10); }
-  if (kind === 'tap') fx.sparkle(tmpV.set(NEST.x, 1, NEST.z), 0xffd27a, 10, 1.5);
+  { const r = tags[kind].getBoundingClientRect(); floatText(r.left + r.width / 2, r.top - 6, kind === 'tap' ? t('upTap', { n: tapPower(S.tap) }) : kind === 'lamp' ? t('upLamp', { n: autoRate(S.lamp).toFixed(1) }) : t('upTreats', { n: Math.round(treatsMult(S.treats) * 100) }), '#c8ff8a'); }
+  S.bought = 1;
+  if (kind === 'tap') { fx.sparkle(tmpV.set(NEST.x, 1, NEST.z), 0xffd27a, 16, 1.8); fx.ring(new THREE.Vector3(NEST.x, 0, NEST.z), 0xffd27a); egg.sv += 16; }
   if (kind === 'lamp') fx.sparkle(world.lamp.position.clone().setY(1.8), 0xffe08a, 10, 1);
   if (kind === 'treats') { fx.sparkle(world.bowl.position.clone().setY(0.4), 0x9ad65a, 10, 1); pets.forEach((p) => { if (p.state === 'idle' || p.state === 'walk') jumpTo(p, p.pos.clone(), 0.45, 0.8); }); }
   updateHud(true); save();
@@ -510,6 +533,8 @@ function updateHud(force) {
     el.querySelector('.cost span').textContent = max ? t('max') : fmt(c);
     el.classList.toggle('can', !max && S.coins >= c && S.hatched > 0);
     el.classList.toggle('cant', !max && S.coins < c);
+    el.classList.add('buy'); el.classList.toggle('off', max || S.coins < c || el.classList.contains('hidden'));
+    el.classList.toggle('ready', !S.bought && !max && S.coins >= c && S.hatched > 0 && !el.classList.contains('hidden'));
   }
   const b = $('btnBoost'), left = S.boostUntil - Date.now();
   b.classList.toggle('on', left > 0);
@@ -520,9 +545,15 @@ function updateHud(force) {
   tags.lamp.classList.toggle('hidden', S.hatched < 1);
   tags.treats.classList.toggle('hidden', S.hatched < 2);
 }
+function goal() {
+  for (let i = 0; i < 4; i++) if (!eggUnlocked(i + 1)) return { text: t('goalFind', { egg: t('eggShort')[i] }), n: speciesFound(i), of: 2, reward: t('egg')[i + 1] };
+  for (let i = 0; i < 5; i++) if (speciesFound(i) < 4) return { text: t('goalSet', { egg: t('eggShort')[i] }), n: speciesFound(i), of: 4, reward: '+' + fmt(SET_BONUS[i]) };
+  return { text: t('goalAll'), n: 20, of: 20, reward: '' };
+}
 function updateDex(pop) {
-  const n = ANIMALS.filter((a) => S.pets[a.id]).length;
-  $('dexN').textContent = `${n}/20`; $('dexF').style.width = (n / 20 * 100) + '%';
+  const n = ANIMALS.filter((a) => S.pets[a.id]).length, gl = goal();
+  $('dexG').textContent = gl.text; $('dexN').textContent = `${gl.n}/${gl.of}`; $('dexR').textContent = gl.reward ? '→ ' + gl.reward : `${n}/20`;
+  $('dexF').style.width = (gl.n / gl.of * 100) + '%';
   $('dex').classList.toggle('hidden', !S.hatched);
   if (pop) { const d = $('dex'); d.classList.remove('pop'); void d.offsetWidth; d.classList.add('pop'); }
 }
@@ -681,7 +712,7 @@ canvas.addEventListener('pointerdown', (e) => {
       if (p.state !== 'idle' && p.state !== 'walk') continue;
       const s = toScreen(tmpV.copy(p.pos).setY(0.5));
       if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < 34) {
-        jumpTo(p, p.pos.clone(), 0.5, 1.1); audio.play('jump', { vol: 0.4, rate: 1.3 });
+        jumpTo(p, p.pos.clone(), 0.5, 1.1); audio.play('jump', { vol: 0.5, rate: 1.3 });
         fx.sparkle(p.pos.clone().setY(1), 0xff8ab0, 5, 0.8);
         return;
       }
@@ -708,12 +739,13 @@ async function load() {
   try { const s = await platform.loadSave(); if (s) S = Object.assign(fresh(), JSON.parse(s)); } catch (e) { S = fresh(); }
   if (!Array.isArray(S.miss)) S.miss = [0, 0, 0, 0, 0];
   if (!Array.isArray(S.eh)) S.eh = [0, 0, 0, 0, 0];
+  if (!Array.isArray(S.setDone)) S.setDone = [0, 0, 0, 0, 0];
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 addEventListener('pagehide', save);
 
 // ---------------- main loop ----------------
-let shake = 0, autoAcc = 0, time = 0, forceZoom = null;
+let shake = 0, autoAcc = 0, time = 0, forceZoom = null, camKick = 0;
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -735,7 +767,8 @@ function step(dt) {
     world.update(time);
     saveT += dt; if (saveT > 5) { saveT = 0; save(); }
   }
-  camZoom += ((forceZoom !== null ? forceZoom : revealPet || egg.state === 'shake' ? 1 : 0) - camZoom) * Math.min(1, dt * 4);
+  camKick = Math.max(0, camKick - dt * 0.8);
+  camZoom += ((forceZoom !== null ? forceZoom : revealPet || egg.state === 'shake' ? 1 : Math.sin(camKick * Math.PI) * 0.45) - camZoom) * Math.min(1, dt * 4);
   placeCamera(time);
   if (shake > 0) { shake = Math.max(0, shake - dt); camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake; }
   placeHudOverEgg();
@@ -751,6 +784,7 @@ async function boot() {
   document.title = t('docTitle');
   $('logo').innerHTML = t('title').replace(' ', '<b>') + '</b>';
   document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = t(el.dataset.t); });
+  document.querySelectorAll('.tag').forEach((el) => el.setAttribute('data-ready', t('ready')));
   bar.style.width = '50%';
   await load();
   // rebuild the island from the save
