@@ -243,7 +243,7 @@ const fx = {
   },
   pillar(pos, color) {
     const g = new THREE.CylinderGeometry(0.9, 1.3, 14, 20, 1, true); g.translate(0, 7, 0);
-    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.BackSide }));
     m.position.copy(pos); scene.add(m); parts.push({ m, t: 0, life: 1.8, pillar: true });
   },
   tapRing() {
@@ -263,7 +263,7 @@ const fx = {
       if (p.grow) p.m.scale.setScalar(1 + k * p.grow);
       if (p.fade) p.m.material.opacity = 0.85 * (1 - k);
       if (p.twinkle) p.m.material.rotation = p.t * 4;
-      if (p.pillar) { p.m.material.opacity = 0.55 * Math.sin(Math.PI * Math.min(1, k * 1.3)) ; p.m.scale.set(1 - k * 0.5, 1, 1 - k * 0.5); p.m.rotation.y += dt; }
+      if (p.pillar) { p.m.material.opacity = 0.45 * Math.sin(Math.PI * Math.min(1, k * 1.3)) ; p.m.scale.set(1 - k * 0.5, 1, 1 - k * 0.5); p.m.rotation.y += dt; }
       if (p.ring) { p.m.scale.setScalar(1 + k * (p.ringK || 2.2)); p.m.material.opacity = 1 - k; }
       if (p.life - p.t < 0.3 && p.g) p.m.scale.setScalar(Math.max(0.01, (p.life - p.t) / 0.3));
       if (k >= 1) { scene.remove(p.m); p.onEnd?.(); parts.splice(i, 1); }
@@ -330,8 +330,10 @@ let hintTaps = 0;
 // hatch sequence: shake → burst → pet on the nest (reveal) → it jumps onto the island → next egg drops in
 let revealPet = null, revealDupe = false, revealT = 0;
 function startHatch() { egg.state = 'shake'; egg.t = 0; audio.play('whoosh', { vol: 0.5 }); }
+let forcePick = null;
 function pickPet() {
   const type = S.egg.type;
+  if (forcePick) { const f = ANIMALS.find((a) => a.id === forcePick); forcePick = null; return f; }
   if (!S.hatched) return ANIMALS[0];                       // first hatch is always the chick
   const pool = ANIMALS.filter((a) => a.egg === type);
   let r = Math.random() * pool.reduce((s, a) => s + RARITY[a.r].weight, 0);
@@ -485,7 +487,7 @@ function updateHud(force) {
   lastHud = now;
   $('coinN').textContent = fmt(S.coins);
   if (force) updateDex();
-  $('rateN').textContent = '+' + fmt(ratePerSec()) + t('perSec');
+  { const r = ratePerSec(); $('rateN').textContent = '+' + (r < 10 ? r.toFixed(1).replace(/\.0$/, '') : fmt(r)) + t('perSec'); }
   for (const k of Object.keys(tags)) {
     const el = tags[k], lv = S[k], max = lv >= MAXLV[k], c = COST[k](lv);
     el.querySelector('.lv').textContent = lv;
@@ -692,7 +694,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) save(
 addEventListener('pagehide', save);
 
 // ---------------- main loop ----------------
-let shake = 0, autoAcc = 0, time = 0;
+let shake = 0, autoAcc = 0, time = 0, forceZoom = null;
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -714,7 +716,7 @@ function step(dt) {
     world.update(time);
     saveT += dt; if (saveT > 5) { saveT = 0; save(); }
   }
-  camZoom += ((revealPet || egg.state === 'shake' ? 1 : 0) - camZoom) * Math.min(1, dt * 4);
+  camZoom += ((forceZoom !== null ? forceZoom : revealPet || egg.state === 'shake' ? 1 : 0) - camZoom) * Math.min(1, dt * 4);
   placeCamera(time);
   if (shake > 0) { shake = Math.max(0, shake - dt); camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake; }
   placeHudOverEgg();
@@ -771,6 +773,12 @@ if (DEBUG) {
     sim(n, dt = 1 / 60) { for (let i = 0; i < n; i++) step(dt); renderer.render(scene, camera); },
     endReveal, get revealing() { return !!revealPet; }, openEggs, openBook, openBoost, closePanel, portrait,
     give(c) { S.coins += c; updateHud(true); },
+    pick(id) { forcePick = id; }, zoom(z) { forceZoom = z; },
+    spawn(id, x, z, face = true) { const a = ANIMALS.find((q) => q.id === id); S.pets[id] = S.pets[id] || 1; let p = pets.find((q) => q.def.id === id); if (!p) p = spawnPet(a); p.pos.set(x, 0, z); p.state = 'pose'; p.t = 0; if (face) p.heading = Math.atan2(camera.position.x - x, camera.position.z - z); p.m.root.position.copy(p.pos); p.m.root.rotation.y = p.heading; return p; },
+    release() { pets.forEach((p) => { if (p.state === 'pose') { p.state = 'idle'; p.t = 0; } }); },
+    setHeat(k) { S.egg.heat = Math.floor(eggHeat() * k); refreshEgg(); },
+    hud(v) { document.getElementById('hud').style.visibility = v ? '' : 'hidden'; },
+    sparkle(n) { fx.sparkle(new THREE.Vector3(NEST.x, 1.2, NEST.z), 0xffe08a, n, 2.6); },
     adDue() { sessionStart = lastAd = Date.now() - 400000; },
     get panelOpen() { return panelOpen; },
     hatchAll() { for (const a of ANIMALS) { S.pets[a.id] = 1 + (a.i % 3); if (!pets.find((p) => p.def.id === a.id)) spawnPet(a); } S.hatched = Math.max(S.hatched, 20); updateHud(true); },

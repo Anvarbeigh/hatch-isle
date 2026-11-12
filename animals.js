@@ -124,7 +124,7 @@ const SPECS = {
     eyes(L, { y: 0.62, x: 0.18, s: 0.13, ring: '#fff4dc' }); beak(L, '#ffb02e', 0.52, 0.14);
     earsTri(L, '#8a6646', null, { x: 0.28, y: 0.98, h: 0.38, tilt: 0.45 });
     return { feet: feetGeo('#ffb02e', { s: [0.14, 0.07, 0.2] }), wings: wingGeo('#8a6646', { s: [0.12, 0.42, 0.34] }), size: 0.88, hop: 0.26 }; },
-  fox(L) { blob(L, '#ff8a3d', '#e86f2a', 0.92, 0.88, 1.18, 0.47); belly(L, '#fff4e6', 0.38);
+  fox(L) { blob(L, '#ff8a3d', '#e86f2a', 0.95, 0.88, 0.95, 0.47); belly(L, '#fff4e6', 0.38);
     for (const sx of [-1, 1]) L.push(P(sphere(10), '#fff4e6', [sx * 0.2, 0.47, 0.36], [0, 0, 0], [0.26, 0.18, 0.18]));
     eyes(L, { y: 0.63 }); nose(L, DARK, 0.5, 0.48); earsTri(L, '#ff8a3d', '#3a2a22', { h: 0.52, tilt: 0.3, y: 0.95 }); L.push(P(sphere(10), '#ff8a3d', [0, 0.45, -0.62], [-0.9, 0, 0], [0.4, 0.75, 0.4])); L.push(P(sphere(8), '#fff4e6', [0, 0.78, -0.86], [-0.9, 0, 0], [0.26, 0.28, 0.26]));
     return { feet: feetGeo('#3a2a22', { s: [0.15, 0.12, 0.2] }), size: 0.92, hop: 0.34 }; },
@@ -194,7 +194,7 @@ const SPECS = {
     L.push(P(sphere(10), '#ff7a2a', [0.02, 0.62, -0.18], [0, 0, 0], [0.18, 0.3, 0.3]));
     for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; L.push(P(ico(0), '#ffcf3a', [0.2, 0.62 + Math.sin(a) * 0.3, -0.18 + Math.cos(a) * 0.3], [a, 0, 0], 0.08)); }
     return { size: 0.95, hop: 0.0, slide: true }; },
-  dragon(L) { blob(L, '#8a5ae8', '#6a3ad0', 1.12, 0.9, 1.05); belly(L, '#ffd9a0', 0.4); eyes(L, { y: 0.64, s: 0.14 }); cheeks(L); nose(L, '#4a2a8a', 0.5, 0.48);
+  dragon(L) { blob(L, '#8a5ae8', '#6a3ad0', 1.12, 0.9, 0.95); belly(L, '#ffd9a0', 0.4); eyes(L, { y: 0.64, s: 0.14 }); cheeks(L); nose(L, '#4a2a8a', 0.5, 0.48);
     for (const sx of [-1, 1]) L.push(P(cone(6), '#ffe0a0', [sx * 0.2, 1.0, -0.05], [-0.3, 0, -sx * 0.35], [0.1, 0.3, 0.1]));
     for (let i = 0; i < 3; i++) L.push(P(cone(4), '#ff7ad0', [0, 0.85 - i * 0.18, -0.4 - i * 0.08], [-0.9 - i * 0.2, 0, 0], [0.1, 0.18, 0.1]));
     L.push(P(cone(8), '#6a3ad0', [0, 0.25, -0.62], [-1.4, 0, 0], [0.22, 0.55, 0.2]));
