@@ -410,6 +410,7 @@ function endReveal() {
     const host = pets.find((q) => q.def.id === p.def.id);
     scene.remove(p.m.root); fx.puff(p.pos, 10, 0xfff3b0);
     if (host) { fx.sparkle(host.pos, 0xffd04a, 14, 1.4); if (host.state === 'idle' || host.state === 'walk') jumpTo(host, host.pos.clone(), 0.5, 1); }
+    { const st = S.pets[p.def.id] || 1, s = toScreen(tmpV.set(NEST.x, 1.9, NEST.z)); floatText(s.x, s.y, `${t('pets.' + p.def.id)} ${'★'.repeat(st)} · ${t('dupeBonus', { n: (st - 1) * 50 })}`, '#ffe08a'); }
   } else {
     pets.push(p); p.pos.set(NEST.x, 0.45, NEST.z); jumpTo(p, freeSpot(), 0.9, 2.4);
     if (S.hatched === 1) setTimeout(() => toast(t('hatchHint')), 900);
@@ -423,6 +424,9 @@ function endReveal() {
 }
 function nextEgg() {
   let type = S.sel;
+  if (S.autoSel != null) {                       // a newly unlocked egg goes on the nest as soon as it's affordable (quietly until then)
+    if (S.coins >= eggCost(S.autoSel)) { type = S.sel = S.autoSel; S.autoSel = null; } else if (eggCost(type) > S.coins) type = 0;
+  }
   if (!eggUnlocked(type)) type = 0;
   const cost = eggCost(type);
   if (cost > 0) {
@@ -437,7 +441,7 @@ function nextEgg() {
 let unlockedSeen = null;
 function checkUnlocks() {
   const now = EGGS.map((_, i) => eggUnlocked(i));
-  if (unlockedSeen) now.forEach((u, i) => { if (u && !unlockedSeen[i]) { S.sel = i; setTimeout(() => { banner(t('newEgg'), t('egg')[i], i); confetti(50); audio.play('unlock', { vol: 0.7 }); }, 900); } });
+  if (unlockedSeen) now.forEach((u, i) => { if (u && !unlockedSeen[i]) { S.autoSel = i; setTimeout(() => { banner(t('newEgg'), t('egg')[i], i); confetti(50); audio.play('unlock', { vol: 0.7 }); }, 900); } });
   unlockedSeen = now;
 }
 function showReveal(def, stars, isNew) {
