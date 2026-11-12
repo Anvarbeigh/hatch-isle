@@ -391,7 +391,7 @@ function burst() {
   audio.play(!had ? 'hatch_rare' : 'hatch', { vol: 0.7 });           // new pet: the longer jingle
   if (def.r >= 3) platform.happytime();
   shake = 0.35;
-  { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+  if (!had) { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
   // pet appears on the nest
   revealPet = spawnPet(def, new THREE.Vector3(NEST.x, 0.45, NEST.z));
   pets.pop();                                              // not walking yet
@@ -399,7 +399,7 @@ function burst() {
   revealT = 0;
   showReveal(def, S.pets[def.id], !revealDupe);
   burstRays.material.color.set(def.r ? RARITY[def.r].color : '#fff3b0');
-  $('dim').classList.add('on');
+  if (!revealDupe) $('dim').classList.add('on');
   S.egg.heat = 0;
   save();
 }
@@ -429,8 +429,8 @@ function nextEgg() {
   if (!eggUnlocked(type)) type = 0;
   const cost = eggCost(type);
   if (cost > 0) {
-    if (S.coins >= cost) { S.coins -= cost; audio.play('buy', { vol: 0.5 }); }
-    else { type = 0; if (Date.now() - (nextEgg.t || 0) > 30000) { nextEgg.t = Date.now(); toast(t('nextEggFree')); } }
+    if (S.coins >= cost) { S.coins -= cost; audio.play('buy', { vol: 0.5 }); const r = coinsEl.getBoundingClientRect(); floatText(r.left + r.width / 2, r.bottom + 4, `−${fmt(cost)} · ${t('egg')[type]}`, '#ffe9a8'); }
+    else { type = 0; if (!nextEgg.told || Date.now() - nextEgg.told > 180000) { nextEgg.told = Date.now(); toast(t('nextEggFree')); } }   // once, then quiet for 3 min
   }
   S.egg = { type, heat: 0, seed: 1 + Math.floor(Math.random() * 9999) };
   refreshEgg();
@@ -485,7 +485,7 @@ function updateEgg(dt, time) {
     burstRays.visible = true; burstRays.position.set(NEST.x, 1.4, NEST.z).addScaledVector(tmpV.subVectors(burstRays.position.set(NEST.x, 1.4, NEST.z), camera.position).normalize(), 2.5); burstRays.material.rotation = time * 0.6;
     burstRays.scale.setScalar(7 * Math.min(1, revealT * 3)); burstRays.material.opacity = 0.7 * Math.min(1, revealT * 3);
     if (Math.random() < dt * 8) fx.sparkle(tmpV.set(NEST.x, 1.2, NEST.z), burstRays.material.color.getHex(), 1, 3);
-    if (revealT > 2.6) endReveal();
+    if (revealT > (revealDupe ? 1.0 : 2.6)) endReveal();          // duplicates: a short pop, new pets: the full reveal
   } else if (burstRays.visible) { burstRays.material.opacity -= dt * 3; if (burstRays.material.opacity <= 0) burstRays.visible = false; }
 }
 const burstRays = (() => {
@@ -702,7 +702,7 @@ let paused = 0;
 canvas.addEventListener('pointerdown', (e) => {
   audio.unlock();
   if (paused || panelOpen) return;
-  if (revealPet) { if (revealT > 0.6) endReveal(); return; }
+  if (revealPet) { if (revealT > (revealDupe ? 0.15 : 0.6)) endReveal(); return; }
   ripple(e.clientX, e.clientY);
   // tapping a pet makes it hop (small bonus); anything else warms the egg
   const eggS = toScreen(tmpV.set(NEST.x, 1.0, NEST.z));
@@ -720,7 +720,7 @@ canvas.addEventListener('pointerdown', (e) => {
   }
   tapEgg();
 });
-addEventListener('keydown', (e) => { if ((e.code === 'Space' || e.code === 'Enter') && !panelOpen && !paused) { audio.unlock(); if (revealPet) { if (revealT > 0.6) endReveal(); } else tapEgg(); e.preventDefault(); } });
+addEventListener('keydown', (e) => { if ((e.code === 'Space' || e.code === 'Enter') && !panelOpen && !paused) { audio.unlock(); if (revealPet) { if (revealT > (revealDupe ? 0.15 : 0.6)) endReveal(); } else tapEgg(); e.preventDefault(); } });
 addEventListener('contextmenu', (e) => e.preventDefault());
 $('tTap').addEventListener('click', () => buy('tap'));
 $('tLamp').addEventListener('click', () => buy('lamp'));
@@ -768,7 +768,7 @@ function step(dt) {
     saveT += dt; if (saveT > 5) { saveT = 0; save(); }
   }
   camKick = Math.max(0, camKick - dt * 0.8);
-  camZoom += ((forceZoom !== null ? forceZoom : revealPet || egg.state === 'shake' ? 1 : Math.sin(camKick * Math.PI) * 0.45) - camZoom) * Math.min(1, dt * 4);
+  camZoom += ((forceZoom !== null ? forceZoom : (revealPet && !revealDupe) || egg.state === 'shake' ? 1 : revealPet ? 0.35 : Math.sin(camKick * Math.PI) * 0.45) - camZoom) * Math.min(1, dt * 4);
   placeCamera(time);
   if (shake > 0) { shake = Math.max(0, shake - dt); camera.position.x += (Math.random() - 0.5) * shake; camera.position.y += (Math.random() - 0.5) * shake; }
   placeHudOverEgg();
