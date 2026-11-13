@@ -26,7 +26,7 @@ const MAXLV = { tap: 40, lamp: 30, treats: 30 };
 const autoRate = (l) => (l <= 0 ? 0 : 0.6 + 0.4 * (l - 1));       // automatic taps per second
 const treatsMult = (l) => 1 + 0.3 * l;
 const DROP_EVERY = 3.5;
-const HEAT_GROW = 1.3, HEAT_CAP = 8, COST_GROW = 1.5;
+const HEAT_GROW = 1.3, HEAT_CAP = 8, COST_GROW = 1.3;
 const tapCoins = () => tapPower(S.tap) * (1 + S.egg.type);       // coins per tap: grows a little with the egg tier   // each egg type gets warmer-to-hatch and pricier the more you hatch it
 // egg price grows with each NEW species found in that egg (max ×5), never per hatch, so the last pets stay reachable
 const eggCost = (i) => (EGGS[i].cost ? Math.round(EGGS[i].cost * Math.pow(COST_GROW, speciesFound(i)) / 10) * 10 : 0);
@@ -201,7 +201,7 @@ function updatePet(p, dt, time) {
       p.drop += DROP_EVERY;
       const v = petIncome(p.def.id, S.pets[p.def.id] || 1) * treatsMult(S.treats) * boostMult();
       earn(v); fx.coin(p.pos, v);
-      if (flying < 8 && !panelOpen) { const s = toScreen(tmpV.copy(p.pos).setY(1.6)); if (!s.behind) floatText(s.x, s.y, '+' + fmt(v), null, 'small'); }
+      if (flying < 8 && !panelOpen && (pets.length <= 6 || Math.random() < 6 / pets.length)) { const s = toScreen(tmpV.copy(p.pos).setY(1.6)); if (!s.behind) floatText(s.x, s.y, '+' + fmt(v), null, 'small'); }
     }
   }
 }
@@ -319,7 +319,8 @@ function confetti(n) {
 }
 function ripple(x, y) { const el = document.createElement('div'); el.className = 'ripple'; el.style.left = x + 'px'; el.style.top = y + 'px'; document.body.appendChild(el); setTimeout(() => el.remove(), 450); }
 let toastT = 0;
-function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.remove('hidden'); el.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { el.style.opacity = 0; setTimeout(() => el.classList.add('hidden'), 300); }, 2200); }
+function toast(msg) { if (panelOpen) return;   // never over an open panel (its buttons already say what's wrong)
+  const el = $('toast'); el.textContent = msg; el.classList.remove('hidden'); el.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => { el.style.opacity = 0; setTimeout(() => el.classList.add('hidden'), 300); }, 2200); }
 
 // ---------------- the egg ----------------
 const egg = { position: world.eggGroup.position, squash: 0, sv: 0, tiltX: 0, tiltZ: 0, tv: new THREE.Vector2(), state: 'idle', t: 0, drop: 0 };
@@ -430,7 +431,7 @@ function nextEgg() {
   if (!eggUnlocked(type)) type = 0;
   const cost = eggCost(type);
   if (cost > 0) {
-    if (S.coins >= cost) { S.coins -= cost; audio.play('buy', { vol: 0.5 }); const r = coinsEl.getBoundingClientRect(); floatText(r.left + r.width / 2, r.bottom + 4, `−${fmt(cost)} · ${t('egg')[type]}`, '#ffe9a8'); }
+    if (S.coins >= cost) { S.coins -= cost; audio.play('buy', { vol: 0.5 }); const s = toScreen(tmpV.set(NEST.x, 0.2, NEST.z)); floatText(s.x, s.y + 30, `−${fmt(cost)} · ${t('egg')[type]}`, '#ffe9a8'); }
     else { type = 0; if (!nextEgg.told || Date.now() - nextEgg.told > 180000) { nextEgg.told = Date.now(); toast(t('nextEggFree')); } }   // once, then quiet for 3 min
   }
   S.egg = { type, heat: 0, seed: 1 + Math.floor(Math.random() * 9999), paid: type === S.sel ? cost : 0 };
@@ -534,6 +535,9 @@ function updateHud(force) {
   $('coinN').textContent = fmt(S.coins);
   if (force) updateDex();
   { const r = ratePerSec(); $('rateN').textContent = '+' + (r < 10 ? r.toFixed(1).replace(/\.0$/, '') : fmt(r)) + t('perSec'); }
+  // the first-purchase callout goes on ONE button only: the cheapest upgrade you can afford
+  let readyKind = null, best = Infinity;
+  for (const k of Object.keys(tags)) { const c = COST[k](S[k]); if (S.hatched > 0 && S[k] < MAXLV[k] && S.coins >= c && c < best && !tags[k].classList.contains('hidden')) { best = c; readyKind = k; } }
   for (const k of Object.keys(tags)) {
     const el = tags[k], lv = S[k], max = lv >= MAXLV[k], c = COST[k](lv);
     el.querySelector('.lv').textContent = lv;
@@ -543,7 +547,7 @@ function updateHud(force) {
     el.classList.toggle('can', !max && S.coins >= c && S.hatched > 0);
     el.classList.toggle('cant', !max && S.coins < c);
     el.classList.add('buy'); el.classList.toggle('off', max || S.coins < c || el.classList.contains('hidden'));
-    el.classList.toggle('ready', !S.bought && !max && S.coins >= c && S.hatched > 0 && !el.classList.contains('hidden'));
+    el.classList.toggle('ready', !S.bought && k === readyKind);
   }
   const b = $('btnBoost'), left = S.boostUntil - Date.now();
   b.classList.toggle('on', left > 0);
@@ -578,6 +582,7 @@ function placeHudOverEgg() {
   const h = $('hint');
   const side = toScreen(tmpV.set(NEST.x + 1.0, 1.6, NEST.z));
   h.style.left = side.x + 'px'; h.style.top = side.y + 'px';
+  { const tx = $('hintT'), wpx = tx.offsetWidth; tx.style.left = Math.max(-side.x + 8, Math.min(40, innerWidth - 8 - side.x - wpx)) + 'px'; tx.style.top = (side.x + 40 + wpx > innerWidth - 8 ? -64 : -28) + 'px'; }
   h.classList.toggle('hidden', S.hatched > 0 || egg.state !== 'idle');
 }
 
@@ -586,11 +591,11 @@ const veil = $('veil');
 let panelOpen = false;
 function openPanel(html, cls = '') {
   veil.innerHTML = `<div class="sheet ${cls}">${html}</div>`;
-  veil.classList.remove('hidden'); panelOpen = true; audio.play('open', { vol: 0.5 });
+  veil.classList.remove('hidden'); panelOpen = true; document.body.classList.add('panel'); { const tEl = $('toast'); tEl.classList.add('hidden'); clearTimeout(toastT); } audio.play('open', { vol: 0.5 });
   platform.gameplayStop();
   veil.querySelector('.x')?.addEventListener('click', closePanel);
 }
-function closePanel() { veil.classList.add('hidden'); veil.innerHTML = ''; panelOpen = false; audio.play('close', { vol: 0.5 }); platform.gameplayStart(); }
+function closePanel() { document.body.classList.remove('panel'); veil.classList.add('hidden'); veil.innerHTML = ''; panelOpen = false; audio.play('close', { vol: 0.5 }); platform.gameplayStart(); }
 veil.addEventListener('pointerdown', (e) => { if (e.target === veil) closePanel(); });
 
 function eggSvg(i, lock) {
@@ -613,10 +618,10 @@ function openEggs() {
     return `<div class="eggrow ${on ? 'on' : ''} ${lock ? 'lock' : ''} ${next ? 'next' : ''}">${eggSvg(i, lock)}<div class="mid"><div class="nm">${t('egg')[i]}</div><div style="font-weight:800;font-size:14px">${sub}</div><div class="pets">${petsH}</div><div class="odds">${found}/4 · ${ni ? t('newIn', { n: ni }) : t('setDone')}</div></div>${btn}</div>`;
   }).join('');
   const odds = RARITY.map((r, i) => `<span style="color:${r.color}">${t('rarity')[i]} ${r.weight}%</span>`).join(' · ');
-  openPanel(`<div class="ribbon wood ot">${t('eggsTitle')}</div><button class="x">✕</button><p class="sub">${t('eggsSub')}</p><p class="sub" style="font-size:14px">${t('chance')}: ${odds}<br><b>${t('pityInfo', { n: PITY })}</b></p><div class="scroll">${rows}</div>`);
+  openPanel(`<div class="ribbon wood ot">${t('eggsTitle')}</div><button class="x">✕</button><p class="sub long">${t('eggsSub')}</p><p class="sub" style="font-size:14px">${t('chance')}: ${odds}<br><b>${t('pityInfo', { n: PITY })}</b></p><div class="scroll">${rows}</div>`, 'eggs');
   veil.querySelectorAll('[data-egg]').forEach((b) => b.addEventListener('click', () => {
     const i = +b.dataset.egg, c = eggCost(i);
-    if (S.coins < c) { audio.play('error', { vol: 0.55 }); toast(t('needMore', { n: fmt(c - S.coins) })); return; }   // never switch silently
+    if (S.coins < c) { audio.play('error', { vol: 0.55 }); b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); b.textContent = t('needMore', { n: fmt(c - S.coins) }); return; }   // never switch silently: the button shakes and says what's missing
     if (egg.state !== 'idle' || revealPet) { toast(t('waitHatch')); return; }
     // put the chosen egg on the nest right now; the current egg goes back and its price is refunded
     audio.play('buy', { vol: 0.5 });
@@ -735,6 +740,7 @@ canvas.addEventListener('pointerdown', (e) => {
 });
 addEventListener('keydown', (e) => { if ((e.code === 'Space' || e.code === 'Enter') && !panelOpen && !paused) { audio.unlock(); if (revealPet) { if (revealT > (revealDupe ? 0.15 : 0.6)) endReveal(); } else tapEgg(); e.preventDefault(); } });
 addEventListener('contextmenu', (e) => e.preventDefault());
+addEventListener('keydown', (e) => { if (e.code === 'Escape' && panelOpen && veil.querySelector('.x')) closePanel(); });
 $('tTap').addEventListener('click', () => buy('tap'));
 $('tLamp').addEventListener('click', () => buy('lamp'));
 $('tTreats').addEventListener('click', () => buy('treats'));
